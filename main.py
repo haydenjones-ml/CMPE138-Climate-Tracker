@@ -1,4 +1,5 @@
 from google.cloud import bigquery
+from google.oauth2 import service_account
 import folium
 import pandas
 import json
@@ -14,26 +15,25 @@ def update_geojson_with_storm_data(geojson_path, storm_queries, bigquery_client)
     Output: return json_data, that will populate each county
     """
 
-     # Load GeoJSON
+    # Load GeoJSON
     with open(geojson_path, 'r') as geojson_file:
         json_data = json.load(geojson_file)
 
     # Execute each storm query and create a dictionary for counts
     storm_counts = {}
     for storm_type, query in storm_queries.items():
-        
+
         # Run query with BigQuery client
         query_job = bigquery_client.query(query)  # Submit the query
-        
+
         df = query_job.to_dataframe()  # Convert query results to a Pandas DataFrame
 
         # Convert DataFrame to dictionary with county as the key
         storm_counts[storm_type] = df.set_index('county')['storm_count'].to_dict()
 
-
     # Populate the GeoJSON with storm data
     for feature in json_data['features']:
-        
+
         county_name = feature['properties']['NAME']  # Adjust this key if needed
 
         # Set storm counts for each type, default to 0 if no data available
@@ -56,7 +56,6 @@ def create_map_with_updated_data(json_data, save_path):
     Output: HTML file that contains county boundaries *and* new updated data per county
     """
 
-
 """
 TODO: 
 - Need to look into turning each county into a heatmap; should be possible with folium
@@ -65,8 +64,12 @@ TODO:
 """
 
 if __name__ == "__main__":
-    client = bigquery.Client()
-
+    pth = "Resources/cmpe-138-project-443107-1ffe957e4627.json"  # Path to your service account credentials file
+    cred = service_account.Credentials.from_service_account_file(pth)
+    
+    # Explicitly pass the project ID when creating the client
+    client = bigquery.Client(credentials=cred, project="cmpe-138-project-443107")  # Make sure the project ID is correct
+    
     # GeoJSON path
     geojson_path = "Resources/CA_Counties.json"
 
