@@ -1,6 +1,7 @@
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import folium
+from folium import Choropleth
 import pandas
 import json
 import geopandas
@@ -45,6 +46,8 @@ def update_geojson_with_storm_data(geojson_path, storm_queries, bigquery_client)
 
     return json_data
 
+
+
 def create_map_with_updated_data(json_data, save_path):
     """
     GeoJSON Data now should contain every storm categorized by type and county, need to actually
@@ -55,6 +58,51 @@ def create_map_with_updated_data(json_data, save_path):
 
     Output: HTML file that contains county boundaries *and* new updated data per county
     """
+
+    # Create a base map centered around California
+    cali_map = folium.Map(location=[37.5, -119], zoom_start=6)
+
+     # Extract county-level storm data into a DataFrame
+    counties_data = []
+    for feature in json_data['features']:
+        county_name = feature['properties']['NAME']  # Adjust if needed
+        rainstorm_count = feature['properties']['rainstorm_count']
+        hailstorm_count = feature['properties']['hailstorm_count']
+        hurricane_count = feature['properties']['hurricane_count']
+        
+        # Append the data to the list
+        counties_data.append({
+            "County": county_name,
+            "Rainstorms": rainstorm_count,
+            "Hailstorms": hailstorm_count,
+            "Hurricanes": hurricane_count
+        })
+
+    # Create a DataFrame
+    df = pandas.DataFrame(counties_data)
+
+    # Add a column for the total number of storms per county
+    df['Total Storms'] = df['Rainstorms'] + df['Hailstorms'] + df['Hurricanes']
+
+    # Add a choropleth map layer
+    Choropleth(
+        geo_data = json_data,
+        data = df,
+        columns = ['County', 'Total Storms'],
+        key_on = 'feature.properties.NAME',  # Matching the GeoJSON key
+        fill_color = 'YlGnBu',
+        fill_opacity = 0.7,
+        line_opacity = 0.2,
+        legend_name = 'Total Storms per County'
+    ).add_to(cali_map)
+
+    # Add a tooltip for interactivity
+    folium.LayerControl().add_to(cali_map)
+
+    # Save the map to the specified path
+    cali_map.save(save_path)
+    print(f"Map successfully saved to {save_path}")
+
 
 """
 TODO: 
@@ -81,4 +129,6 @@ if __name__ == "__main__":
 
     # Call the function
     updated_geojson = update_geojson_with_storm_data(geojson_path, storm_queries, client)
-    print(updated_geojson)
+    
+    map_save_path = "Resources/CA_Counties_Storms.html" 
+    create_map_with_updated_data(updated_geojson, map_save_path)
