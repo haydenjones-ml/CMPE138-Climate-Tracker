@@ -4,24 +4,6 @@ import pandas
 import json
 import geopandas
 
-
-# Code to add to main method to create connection to bigquery and to call update_geojson_with_storm_data() function using connection, GeoJSON path, and storm_queries query string
-# client = bigquery.Client()
-
-# # GeoJSON path
-# geojson_path = "Resources/CA_Counties.json"
-
-# Example of what storm_queries could look like
-# storm_queries = {
-#       'rainstorm': "SELECT county, COUNT(*) AS storm_count FROM rainstorm_reports WHERE state = 'CA' GROUP BY county;",
-#       'hailstorm': "SELECT county, COUNT(*) AS storm_count FROM hail_reports WHERE state = 'CA' GROUP BY county;",
-#       'hurricane': "SELECT county, COUNT(*) AS storm_count FROM hurricane_reports WHERE state = 'CA' GROUP BY county;"
-#   }
-
-# # Call the function
-# updated_geojson = update_geojson_with_storm_data(geojson_path, storm_queries, client)
-
-
 def update_geojson_with_storm_data(geojson_path, storm_queries, bigquery_client):
     """
     Now that GeoJSON is initialized, we need to populate each county with a categorized
@@ -59,6 +41,8 @@ def update_geojson_with_storm_data(geojson_path, storm_queries, bigquery_client)
         feature['properties']['hailstorm_count'] = storm_counts.get('hailstorm', {}).get(county_name, 0)
         feature['properties']['hurricane_count'] = storm_counts.get('hurricane', {}).get(county_name, 0)
 
+    print('Storm count of counties in JSON has been updated')
+
     return json_data
 
 def create_map_with_updated_data(json_data, save_path):
@@ -79,3 +63,19 @@ TODO:
 - Slider/Dropdown member to re-query and update data and map
 - .... to be continued
 """
+
+if __name__ == "__main__":
+    client = bigquery.Client()
+
+    # GeoJSON path
+    geojson_path = "Resources/CA_Counties.json"
+
+    storm_queries = {
+          'rainstorm': "SELECT county, COUNT(*) AS storm_count FROM rainstorm_reports WHERE state = 'CA' GROUP BY county;",
+          'hailstorm': "SELECT county, COUNT(*) AS storm_count FROM hail_reports WHERE state = 'CA' GROUP BY county;",
+          'hurricane': "SELECT county, COUNT(*) AS storm_count FROM hurricane_reports WHERE state = 'CA' GROUP BY county;"
+      }
+
+    # Call the function
+    updated_geojson = update_geojson_with_storm_data(geojson_path, storm_queries, client)
+    print(updated_geojson)
