@@ -122,9 +122,9 @@ if __name__ == "__main__":
     geojson_path = "Resources/CA_Counties.json"
 
     storm_queries = {
-          'rainstorm': "SELECT county, COUNT(*) AS storm_count FROM rainstorm_reports WHERE state = 'CA' GROUP BY county;",
-          'hailstorm': "SELECT county, COUNT(*) AS storm_count FROM hail_reports WHERE state = 'CA' GROUP BY county;",
-          'hurricane': "SELECT county, COUNT(*) AS storm_count FROM hurricane_reports WHERE state = 'CA' GROUP BY county;"
+          'hailstorm': "SELECT county, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.hail_reports WHERE state = 'CA' GROUP BY county;",
+          'windstorm': "SELECT county, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.wind_reports WHERE state = 'CA' GROUP BY county;",
+          'tornado': "SELECT county, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.tornado_reports WHERE state = 'CA' GROUP BY county;"
       }
 
     # Call the function
