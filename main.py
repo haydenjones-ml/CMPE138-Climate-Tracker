@@ -2,6 +2,7 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 import folium
 from folium import Choropleth
+from folium.plugins import HeatMap
 import pandas
 import json
 import geopandas
@@ -48,7 +49,7 @@ def update_geojson_with_storm_data(geojson_path, storm_queries, bigquery_client)
 
 
 
-def create_map_with_updated_data(json_data, save_path):
+def create_map_with_updated_data(json_data, storm_queries, save_path, client):
     """
     GeoJSON Data now should contain every storm categorized by type and county, need to actually
     place them in each county. Refer to map.py for data population algorithm! Hint: Look into iloc
@@ -59,13 +60,14 @@ def create_map_with_updated_data(json_data, save_path):
     Output: HTML file that contains county boundaries *and* new updated data per county
     """
 
-    # Create a base map centered around California
+   
+     # Create a base map centered around California
     cali_map = folium.Map(location=[37.5, -119], zoom_start=6)
 
-     # Extract county-level storm data into a DataFrame
+    # Extract county-level storm data into a DataFrame
     counties_data = []
     for feature in json_data['features']:
-        county_name = feature['properties']['NAME']  # Adjust if needed
+        county_name = feature['properties']['NAME']  # Adjust this key if needed
         rainstorm_count = feature['properties']['rainstorm_count']
         hailstorm_count = feature['properties']['hailstorm_count']
         hurricane_count = feature['properties']['hurricane_count']
@@ -79,24 +81,56 @@ def create_map_with_updated_data(json_data, save_path):
         })
 
     # Create a DataFrame
-    df = pandas.DataFrame(counties_data)
+    county_df = pandas.DataFrame(counties_data)
 
-    # Add a column for the total number of storms per county
-    df['Total Storms'] = df['Rainstorms'] + df['Hailstorms'] + df['Hurricanes']
+    # Add totals per storm type
+    county_df['Rainstorms Total'] = county_df['Rainstorms'].sum()
+    county_df['Hailstorms Total'] = county_df['Hailstorms'].sum()
+    county_df['Hurricanes Total'] = county_df['Hurricanes'].sum()
 
-    # Add a choropleth map layer
-    Choropleth(
-        geo_data = json_data,
-        data = df,
-        columns = ['County', 'Total Storms'],
-        key_on = 'feature.properties.NAME',  # Matching the GeoJSON key
-        fill_color = 'YlGnBu',
-        fill_opacity = 0.7,
-        line_opacity = 0.2,
-        legend_name = 'Total Storms per County'
-    ).add_to(cali_map)
+    # Add a map layer for each storm type to allow for switching storms
+    storm_types = ['Rainstorms Total', 'Hailstorms Total', 'Hurricanes Total']
+    colors = ['Blues', 'Greens', 'Reds']
+    legends = ['Rainstorms per County', 'Hailstorms per County', 'Hurricanes per County']
 
-    # Add a tooltip for interactivity
+    for storm_type, color, legend in zip(storm_types, colors, legends):
+        Choropleth(
+            geo_data = json_data,
+            data = county_df,
+            columns = ['County', storm_type],
+            key_on = 'feature.properties.NAME',  # Match GeoJSON key
+            fill_color = color,
+            fill_opacity = 0.7,
+            line_opacity = 0.2,
+            legend_name = legend
+        ).add_to(cali_map)
+
+    # Add heatmap layers for each storm type based on county-level totals
+    for storm_type, query in storm_queries.items():
+        query_job = client.query(query)
+        report_df = query_job.to_dataframe()
+
+        # Prepare heatmap data with intensities from the storm reports
+        heatmap_data = []
+        for index, row in report_df.iterrows():
+            lat = row['latitude']
+            lon = row['longitude']
+            county_name = row['county']
+            # Use the county's total for this storm type as intensity
+            intensity = county_df.loc[county_df['County'] == county_name, storm_type.title()].values
+            if intensity.size > 0:
+                heatmap_data.append([lat, lon, intensity[0]])
+
+        # Add heatmap layer for this storm type
+        HeatMap(
+            data=heatmap_data,
+            radius=15,
+            blur=20,
+            max_zoom=10,
+            name=f"{storm_type} Heatmap"
+        ).add_to(cali_map)
+
+    # Add a layer control for interactivity
     folium.LayerControl().add_to(cali_map)
 
     # Save the map to the specified path
@@ -122,13 +156,13 @@ if __name__ == "__main__":
     geojson_path = "Resources/CA_Counties.json"
 
     storm_queries = {
-          'hailstorm': "SELECT county, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.hail_reports WHERE state = 'CA' GROUP BY county;",
-          'windstorm': "SELECT county, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.wind_reports WHERE state = 'CA' GROUP BY county;",
-          'tornado': "SELECT county, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.tornado_reports WHERE state = 'CA' GROUP BY county;"
+          'hailstorm': "SELECT county, longitude, latitude, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.hail_reports WHERE state = 'CA' GROUP BY county, longitude, latitude;",
+          'windstorm': "SELECT county, longitude, latitude, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.wind_reports WHERE state = 'CA' GROUP BY county, longitude, latitude;",
+          'tornado': "SELECT county, longitude, latitude, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.tornado_reports WHERE state = 'CA' GROUP BY county, longitude, latitude;"
       }
 
     # Call the function
     updated_geojson = update_geojson_with_storm_data(geojson_path, storm_queries, client)
     
     map_save_path = "Resources/CA_Counties_Storms.html" 
-    create_map_with_updated_data(updated_geojson, map_save_path)
+    create_map_with_updated_data(updated_geojson, storm_queries, map_save_path, client)
