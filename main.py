@@ -7,7 +7,7 @@ import pandas
 import json
 import geopandas
 
-def update_geojson_with_storm_data(geojson_path, storm_queries, bigquery_client):
+def update_geojson_with_storm_data(geojson_read_path, geojson_write_path, storm_queries, bigquery_client):
     """
     Now that GeoJSON is initialized, we need to populate each county with a categorized
     count of every storm.
@@ -18,7 +18,7 @@ def update_geojson_with_storm_data(geojson_path, storm_queries, bigquery_client)
     """
 
     # Load GeoJSON
-    with open(geojson_path, 'r') as geojson_file:
+    with open(geojson_read_path, 'r') as geojson_file:
         json_data = json.load(geojson_file)
 
     # Execute each storm query and create a dictionary for counts
@@ -31,25 +31,28 @@ def update_geojson_with_storm_data(geojson_path, storm_queries, bigquery_client)
         df = query_job.to_dataframe()  # Convert query results to a Pandas DataFrame
 
         # Convert DataFrame to dictionary with county as the key
-        storm_counts[storm_type] = df.set_index('county')['storm_count'].to_dict()
+        df_grouped = df.groupby('county')['storm_count'].sum()
+        storm_counts[storm_type] = df_grouped.to_dict()
 
     # Populate the GeoJSON with storm data
     for feature in json_data['features']:
 
-        county_name = feature['properties']['NAME']  # Adjust this key if needed
-
+        county_name = feature['properties']['NAME'].upper()  # Adjust this key if needed
+       
         # Set storm counts for each type, default to 0 if no data available
-        feature['properties']['rainstorm_count'] = storm_counts.get('rainstorm', {}).get(county_name, 0)
+        feature['properties']['rainstorm_count'] = storm_counts.get('windstorm', {}).get(county_name, 0)
         feature['properties']['hailstorm_count'] = storm_counts.get('hailstorm', {}).get(county_name, 0)
-        feature['properties']['hurricane_count'] = storm_counts.get('hurricane', {}).get(county_name, 0)
+        feature['properties']['hurricane_count'] = storm_counts.get('tornado', {}).get(county_name, 0)
+    
+    with open(geojson_write_path, 'w') as outfile:
+            json.dump(json_data, outfile)
 
-    print('Storm count of counties in JSON has been updated')
-
-    return json_data
+    print(f'Storm count of counties in JSON has been updated and stored at {geojson_write_path}')
 
 
 
-def create_map_with_updated_data(json_data, storm_queries, save_path, client):
+
+def create_map_with_updated_data(geojson_read_path, storm_queries, save_path, client):
     """
     GeoJSON Data now should contain every storm categorized by type and county, need to actually
     place them in each county. Refer to map.py for data population algorithm! Hint: Look into iloc
@@ -60,7 +63,10 @@ def create_map_with_updated_data(json_data, storm_queries, save_path, client):
     Output: HTML file that contains county boundaries *and* new updated data per county
     """
 
-   
+        # Load GeoJSON
+    with open(geojson_read_path, 'r') as geojson_file:
+        json_data = json.load(geojson_file)
+    
      # Create a base map centered around California
     cali_map = folium.Map(location=[37.5, -119], zoom_start=6)
 
@@ -153,7 +159,8 @@ if __name__ == "__main__":
     client = bigquery.Client(credentials=cred, project="cmpe-138-project-443107")  # Make sure the project ID is correct
     
     # GeoJSON path
-    geojson_path = "Resources/CA_Counties.json"
+    geojson_original_path = "Resources/CA_Counties.json"
+    geojson_update_path = "Resources/Updated_CA_Counties.json"
 
     storm_queries = {
           'hailstorm': "SELECT county, longitude, latitude, COUNT(*) AS storm_count FROM bigquery-public-data.noaa_preliminary_severe_storms.hail_reports WHERE state = 'CA' GROUP BY county, longitude, latitude;",
@@ -162,7 +169,7 @@ if __name__ == "__main__":
       }
 
     # Call the function
-    updated_geojson = update_geojson_with_storm_data(geojson_path, storm_queries, client)
-    
-    map_save_path = "Resources/CA_Counties_Storms.html" 
-    create_map_with_updated_data(updated_geojson, storm_queries, map_save_path, client)
+    updated_geojson = update_geojson_with_storm_data(geojson_original_path, geojson_update_path, storm_queries, client)
+
+    # map_save_path = "Resources/CA_Counties_Storms.html" 
+    # create_map_with_updated_data(geojson_update_path, storm_queries, map_save_path, client)
