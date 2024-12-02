@@ -40,9 +40,9 @@ def update_geojson_with_storm_data(geojson_read_path, geojson_write_path, storm_
         county_name = feature['properties']['NAME'].upper()  # Adjust this key if needed
        
         # Set storm counts for each type, default to 0 if no data available
-        feature['properties']['rainstorm_count'] = storm_counts.get('windstorm', {}).get(county_name, 0)
+        feature['properties']['windstorm_count'] = storm_counts.get('windstorm', {}).get(county_name, 0)
         feature['properties']['hailstorm_count'] = storm_counts.get('hailstorm', {}).get(county_name, 0)
-        feature['properties']['hurricane_count'] = storm_counts.get('tornado', {}).get(county_name, 0)
+        feature['properties']['Tornado_count'] = storm_counts.get('tornado', {}).get(county_name, 0)
     
     with open(geojson_write_path, 'w') as outfile:
             json.dump(json_data, outfile)
@@ -74,30 +74,30 @@ def create_map_with_updated_data(geojson_read_path, storm_queries, save_path, cl
     counties_data = []
     for feature in json_data['features']:
         county_name = feature['properties']['NAME']  # Adjust this key if needed
-        rainstorm_count = feature['properties']['rainstorm_count']
+        windstorm_count = feature['properties']['windstorm_count']
         hailstorm_count = feature['properties']['hailstorm_count']
-        hurricane_count = feature['properties']['hurricane_count']
+        Tornado_count = feature['properties']['Tornado_count']
         
         # Append the data to the list
         counties_data.append({
             "County": county_name,
-            "Rainstorms": rainstorm_count,
+            "Windstorms": windstorm_count,
             "Hailstorms": hailstorm_count,
-            "Hurricanes": hurricane_count
+            "Tornados": Tornado_count
         })
 
     # Create a DataFrame
     county_df = pandas.DataFrame(counties_data)
 
     # Add totals per storm type
-    county_df['Rainstorms Total'] = county_df['Rainstorms'].sum()
+    county_df['Windstorms Total'] = county_df['Windstorms'].sum()
     county_df['Hailstorms Total'] = county_df['Hailstorms'].sum()
-    county_df['Hurricanes Total'] = county_df['Hurricanes'].sum()
+    county_df['Tornados Total'] = county_df['Tornados'].sum()
 
     # Add a map layer for each storm type to allow for switching storms
-    storm_types = ['Rainstorms Total', 'Hailstorms Total', 'Hurricanes Total']
+    storm_types = ['Windstorms Total', 'Hailstorms Total', 'Tornados Total']
     colors = ['Blues', 'Greens', 'Reds']
-    legends = ['Rainstorms per County', 'Hailstorms per County', 'Hurricanes per County']
+    legends = ['Windstorms per County', 'Hailstorms per County', 'Tornados per County']
 
     for storm_type, color, legend in zip(storm_types, colors, legends):
         Choropleth(

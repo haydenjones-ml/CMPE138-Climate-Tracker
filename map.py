@@ -11,9 +11,9 @@ def convert_map_to_json(shape_path, save_path):
     
     # Set up initial values for storm counts
     for storm in json_dict['features']:
-        storm['properties']['rainstorm_count'] = 0
+        storm['properties']['windstorm_count'] = 0
         storm['properties']['hailstorm_count'] = 0
-        storm['properties']['hurricane_count'] = 0  # hurricanes in cali, lol
+        storm['properties']['tornado_count'] = 0  # Tornados in cali, lol
         
     # Save the updated JSON to a file
     with open(save_path, 'w') as outfile:
