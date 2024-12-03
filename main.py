@@ -40,9 +40,9 @@ def update_geojson_with_storm_data(geojson_read_path, geojson_write_path, storm_
         county_name = feature['properties']['NAME'].upper()  # Adjust this key if needed
        
         # Set storm counts for each type, default to 0 if no data available
-        feature['properties']['windstorm_count'] = storm_counts.get('windstorm', {}).get(county_name, 0)
+        feature['properties']['rainstorm_count'] = storm_counts.get('windstorm', {}).get(county_name, 0)
         feature['properties']['hailstorm_count'] = storm_counts.get('hailstorm', {}).get(county_name, 0)
-        feature['properties']['Tornado_count'] = storm_counts.get('tornado', {}).get(county_name, 0)
+        feature['properties']['hurricane_count'] = storm_counts.get('tornado', {}).get(county_name, 0)
     
     with open(geojson_write_path, 'w') as outfile:
             json.dump(json_data, outfile)
@@ -83,7 +83,7 @@ def create_map_with_updated_data(geojson_read_path, storm_queries, save_path, cl
             "County": county_name,
             "Rainstorms": rainstorm_count,
             "Hailstorms": hailstorm_count,
-            "Hurricanes": hurricane_count
+            "Tornados": hurricane_count
         })
 
     # Create a DataFrame
@@ -92,20 +92,19 @@ def create_map_with_updated_data(geojson_read_path, storm_queries, save_path, cl
     # Add totals per storm type
     county_df['Rainstorms Total'] = county_df['Rainstorms']
     county_df['Hailstorms Total'] = county_df['Hailstorms']
-    county_df['Hurricanes Total'] = county_df['Hurricanes']
+    county_df['Tornados Total'] = county_df['Tornados']
 
     # Add a map layer for each storm type to allow for switching storms
-    storm_types = ['Rainstorms Total', 'Hailstorms Total', 'Hurricanes Total']
-    colors = ['Blues', 'Greens', 'Reds']
-    legends = ['Rainstorms per County', 'Hailstorms per County', 'Hurricanes per County']
+    storm_types = ['Rainstorms Total', 'Hailstorms Total', 'Tornados Total']
+    legends = ['Storm Frequency']
 
-    for storm_type, color, legend in zip(storm_types, colors, legends):
+    for storm_type, legend in zip(storm_types, legends):
         Choropleth(
             geo_data = json_data,
             data = county_df,
             columns = ['County', storm_type],
             key_on = 'feature.properties.NAME',  # Match GeoJSON key
-            fill_color = color,
+            fill_color = 'RdYlBu_r',
             fill_opacity = 0.7,
             line_opacity = 0.2,
             legend_name = legend
@@ -172,5 +171,5 @@ if __name__ == "__main__":
     # Call the function
     updated_geojson = update_geojson_with_storm_data(geojson_original_path, geojson_update_path, storm_queries, client)
 
-    # map_save_path = "Resources/CA_Counties_Storms.html" 
-    # create_map_with_updated_data(geojson_update_path, storm_queries, map_save_path, client)
+    map_save_path = "Resources/CA_Counties_Storms.html" 
+    create_map_with_updated_data(geojson_update_path, storm_queries, map_save_path, client)
