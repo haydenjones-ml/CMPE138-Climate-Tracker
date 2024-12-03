@@ -95,7 +95,7 @@ def create_map_with_updated_data(geojson_read_path, storm_queries, save_path, cl
     county_df['Tornados Total'] = county_df['Tornados']
 
     # Add a map layer for each storm type to allow for switching storms
-    storm_types = ['Rainstorms Total', 'Hailstorms Total', 'Tornados Total']
+    storm_types = ['Windstorms Total', 'Hailstorms Total', 'Tornados Total']
     legends = ['Storm Frequency']
 
     for storm_type, legend in zip(storm_types, legends):
